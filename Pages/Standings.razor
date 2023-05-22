@@ -1,0 +1,49 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject StandingsHelper StandingsHelper
+@implements IAsyncDisposable
+
+<PageTitle>Standings</PageTitle>
+
+<div id="messagesList">
+    @foreach (var row in standings)
+    {
+        <div style="color:@row.Color;font-size:@row.Size">@row.Row</div>
+    }
+</div>
+
+@code {
+    private HubConnection? hubConnection;
+    private IEnumerable<StandingsRow> standings = new List<StandingsRow>();
+    private string? userInput;
+    private string? messageInput;
+
+    protected override async Task OnInitializedAsync()
+    {
+        StandingsHelper.RunStandingsHelper();
+
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/standingshub"))
+            .Build();
+           
+        hubConnection.On<IEnumerable<StandingsRow>>("UpdateStandings", (newStandings) =>
+        {
+            standings = newStandings;
+            InvokeAsync(StateHasChanged);
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    public bool IsConnected =>
+        hubConnection?.State == HubConnectionState.Connected;
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

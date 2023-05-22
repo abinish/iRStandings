@@ -1,0 +1,138 @@
+﻿@page "/settings"
+@using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.AspNetCore.Components.Forms
+@inject NavigationManager Navigation
+@inject StandingsHelper StandingsHelper
+@implements IAsyncDisposable
+
+<PageTitle>Settings</PageTitle>
+
+
+<EditForm Model="@settings" OnSubmit="@HandleSave">
+    <div>
+        <label for="seasonNumber">SimRacerHub Season Number:</label>
+        <InputText id="seasonNumber" @bind-Value="settings.SimRacerHubSeasonNumber" />  <div>BTT Season7: 18124 BPC Season8: 18026  QRL XFinity Season2: 18185</div>        
+        <div>Use one of the season numbers above.  If you want another load the season standings page and get the season_id from the URL.  It will be the number at the end of the url like 18185 is here: https://www.simracerhub.com/scoring/season_standings.php?season_id=18185</div>
+
+    
+    </div>
+   <br />
+   <div>
+        <label for="notes">Notes (this has no use other than for you to store information like seasonIds for future use in changing between leagues):</label>
+        <br />
+        <InputTextArea id="notes" @bind-Value="settings.Notes" rows="3" style="width: 50%" />
+ </div>
+   <br />
+    <div>
+        <label for="EnablePlayoffMode">Enable Playoff Mode:</label>
+        <InputCheckbox id="EnablePlayoffMode" @bind-Value="settings.EnablePlayoffMode" />
+    </div>
+    <br />
+     <div>
+        <label for="CurrentPlayoffDrivers">Current Playoff Drivers:</label>
+        <InputNumber id="CurrentPlayoffDrivers" @bind-Value="settings.CurrentPlayoffDrivers" />
+    </div>
+
+    <br />
+    <div>
+        <label for="CutoffDrivers">Cutoff Drivers:</label>
+        <InputNumber id="CutoffDrivers" @bind-Value="settings.CutoffDrivers" />
+    </div>
+    <br />
+    <div>
+        <label for="DropWeeks">Drop Weeks:</label>
+        <InputNumber id="DropWeeks" @bind-Value="settings.DropWeeks" />    
+    </div>
+    <br />
+    <div>
+        <label for="WeeksBeforeDropping">Weeks Before Dropping Races:</label>
+        <InputNumber id="WeeksBeforeDropping" @bind-Value="settings.WeeksBeforeDropping" />
+    
+    </div>
+    <br />
+    <div>
+        <label for="MaxDriversToShow">Max drivers to show:</label>
+        <InputNumber id="MaxDriversToShow" @bind-Value="settings.MaxDriversToShow" />
+    </div>
+    <br />
+    <h1>Scoring Settings</h1>
+
+    <div>
+        <label for="LeagueScoring">League Scoring System:</label>
+        <InputSelect id="LeagueScoring" @bind-Value="settings.LeagueScoring">
+            @foreach(var scoring in settings.ScoringTypes)
+            {
+                <option value="@scoring">@scoring</option>
+            }
+        </InputSelect>
+
+    </div>
+    <br />
+    <div>
+        <label for="LedLapPoints">Led Lap Points:</label>
+        <InputNumber id="LedLapPoints" @bind-Value="settings.LedLapPoints" />
+    </div>
+    <br />
+    <div>
+        <label for="LedMostLapsPoints">Led Most Laps Points:</label>
+        <InputNumber id="LedMostLapsPoints" @bind-Value="settings.LedMostLapsPoints" />
+    </div>
+    <br />
+    <div>
+        <label for="FastestLapPoints">Fastest Lap Points:</label>
+        <InputNumber id="FastestLapPoints" @bind-Value="settings.FastestLapPoints" />
+    </div>
+    <br/>
+    <div>
+        <label for="NoIncidentPoints">No Incident Points:</label>
+        <InputNumber id="NoIncidentPoints" @bind-Value="settings.NoIncidentPoints" />
+    </div>
+    <br/>
+    <div>
+        <label for="PolePoints">Pole Points:</label>
+        <InputNumber id="PolePoints" @bind-Value="settings.PolePoints" />
+    </div>
+    <button type="submit">Save</button>
+</EditForm>
+
+@code {
+    private HubConnection? hubConnection;
+    private iRStandings.Settings settings = new iRStandings.Settings();
+    private string? userInput;
+    private string? messageInput;
+
+    protected override async Task OnInitializedAsync()
+    {
+        StandingsHelper.RunStandingsHelper();
+
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/settingshub"))
+            .Build();
+
+        hubConnection.On<iRStandings.Settings>("UpdateSettings", (newSettings) =>
+        {
+            settings = newSettings;
+            InvokeAsync(StateHasChanged);
+        });
+
+        await hubConnection.StartAsync();
+
+        StandingsHelper.SendSettings();
+    }
+
+    public bool IsConnected =>
+        hubConnection?.State == HubConnectionState.Connected;
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+    private async void HandleSave()
+    {
+        await hubConnection.InvokeAsync("SaveSettings", settings);
+        // Process the form
+    }
+}
